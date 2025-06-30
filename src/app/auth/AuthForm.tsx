@@ -1,7 +1,6 @@
 'use client'; // 声明这是一个客户端组件
 
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'; // 暂时先用旧的库，之后再升级
 import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function AuthForm() {
