@@ -1,3 +1,5 @@
+// src/app/profile/page.tsx
+
 'use client';
 
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
@@ -5,18 +7,27 @@ import { User } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import Button from '../../components/ui/Button'; // 引入自定义按钮
-import Input from '../../components/ui/Input';   // 引入自定义输入框
 import Link from 'next/link';
+
+import Button from '../../components/ui/Button';
+import Input from '../../components/ui/Input';
+import AvatarUploader from '../../components/AvatarUploader'; // 导入我们自己创建的上传组件
 
 export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
-  const [name, setName] = useState('');
-  const [image, setImage] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState('');
+  
+  // Profile state
+  const [name, setName] = useState('');
+  const [bio, setBio] = useState('');
+  const [website, setWebsite] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  
+  // State for the new avatar blob from our custom uploader
+  const [croppedAvatarBlob, setCroppedAvatarBlob] = useState<Blob | null>(null);
 
   const supabase = createClientComponentClient();
   const router = useRouter();
@@ -26,8 +37,12 @@ export default function ProfilePage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUser(user);
-        setName(user.user_metadata?.name || '');
-        setImage(user.user_metadata?.image || '');
+        const metadata = user.user_metadata;
+        setName(metadata?.name || '');
+        // Set a default avatar if none exists
+        setAvatarUrl(metadata?.image || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${user.id}`);
+        setBio(metadata?.bio || '');
+        setWebsite(metadata?.website || '');
       } else {
         router.push('/auth');
       }
@@ -35,27 +50,72 @@ export default function ProfilePage() {
     };
     getUser();
   }, [supabase, router]);
+  
+  // Function to upload the avatar blob to Supabase Storage
+  const uploadAvatar = async (blob: Blob): Promise<string> => {
+    if (!user) throw new Error("用户未登录，无法上传头像。");
+    
+    // Create a unique file path for the avatar
+    const filePath = `${user.id}/avatar-${Date.now()}.png`;
+    
+    // Upload the file to the 'avatars' bucket
+    const { data, error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, blob, {
+        cacheControl: '3600',
+        upsert: true, // Overwrite if a file with the same name exists
+      });
 
-  const handleUpdateProfile = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+    if (uploadError) {
+      throw new Error(`头像上传失败: ${uploadError.message}`);
+    }
+
+    // Get the public URL of the uploaded file
+    const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(data.path);
+    return publicUrl;
+  };
+
+  // Main function to handle the profile update form submission
+  const handleUpdateProfile = async (e?: React.FormEvent<HTMLFormElement>) => {
+    e?.preventDefault(); // Prevent default form submission if triggered by form
     setIsUpdating(true);
     setMessage('');
-    
-    const response = await fetch('/api/user/profile', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, image }),
-    });
-    
-    const data = await response.json();
-    if (response.ok) {
+
+    try {
+      let finalAvatarUrl = avatarUrl;
+      
+      // If a new avatar has been cropped, upload it first
+      if (croppedAvatarBlob) {
+        setMessage('正在上传新头像...');
+        finalAvatarUrl = await uploadAvatar(croppedAvatarBlob);
+      }
+      
+      setMessage('正在更新个人资料...');
+      // Update user metadata in Supabase Auth
+      const { error } = await supabase.auth.updateUser({
+        data: { 
+          name, 
+          image: finalAvatarUrl, 
+          bio, 
+          website 
+        },
+      });
+
+      if (error) throw error;
+      
+      // Update the UI state after successful update
+      setAvatarUrl(finalAvatarUrl);
+      setCroppedAvatarBlob(null); // Clear the blob state
       setMessage('个人资料更新成功！');
-    } else {
-      setMessage(`更新失败: ${data.error}`);
+
+    } catch (error: unknown) {
+      setMessage(`更新失败: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsUpdating(false);
     }
-    setIsUpdating(false);
   };
   
+  // Logout handler
   const handleLogout = async () => {
     setIsLoggingOut(true);
     await supabase.auth.signOut();
@@ -72,65 +132,57 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen text-white p-4">
+    <div className="flex flex-col items-center justify-center min-h-screen text-white p-4 py-12">
       <motion.div 
-        className="w-full max-w-lg p-8 space-y-6 rounded-2xl shadow-2xl glassmorphism"
+        className="w-full max-w-2xl p-8 space-y-8 rounded-2xl shadow-2xl glassmorphism"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
         <div className="text-center">
-            {/* 显示用户头像，如果没有则显示默认图标 */}
-            <img 
-              src={image || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${user?.id}`} 
-              alt="User Avatar"
-              className="w-24 h-24 rounded-full mx-auto mb-4 border-2 border-indigo-400 p-1"
-            />
-            <h2 className="text-4xl font-bold">
-              编辑个人资料
-            </h2>
-            <p className="text-slate-400 mt-2">欢迎, {user?.email}</p>
+          <h2 className="text-4xl font-bold">编辑个人资料</h2>
+          <p className="text-slate-400 mt-2">让你的主页更具个性！</p>
         </div>
         
-        <form className="space-y-6" onSubmit={handleUpdateProfile}>
+        {/* The new AvatarUploader component */}
+        <AvatarUploader 
+          initialImage={avatarUrl}
+          onImageCropped={(blob) => setCroppedAvatarBlob(blob)}
+          onUploadRequested={() => handleUpdateProfile()} // Trigger the main form submission logic
+          isLoading={isUpdating}
+        />
+
+        {/* The main form for other profile details */}
+        <form id="update-profile-form" className="space-y-6" onSubmit={handleUpdateProfile}>
           <div className="space-y-4">
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-slate-300 mb-1">姓名</label>
-              <Input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="你的名字"
-              />
+              <Input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="你的名字或昵称" />
             </div>
             <div>
-              <label htmlFor="image" className="block text-sm font-medium text-slate-300 mb-1">头像 URL</label>
-              <Input
-                id="image"
-                type="text"
-                value={image}
-                onChange={(e) => setImage(e.target.value)}
-                placeholder="https://example.com/avatar.png"
+              <label htmlFor="website" className="block text-sm font-medium text-slate-300 mb-1">个人网站</label>
+              <Input id="website" type="url" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://..." />
+            </div>
+            <div>
+              <label htmlFor="bio" className="block text-sm font-medium text-slate-300 mb-1">个人简介</label>
+              <textarea
+                id="bio"
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                rows={3}
+                className="w-full px-4 py-3 text-lg bg-slate-800/50 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 transition-shadow duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900"
+                placeholder="介绍一下自己..."
               />
             </div>
           </div>
           
-          {message && (
-            <p className={`text-center font-medium text-sm ${message.includes('失败') ? 'text-red-400' : 'text-green-400'}`}>
-              {message}
-            </p>
-          )}
+          {message && <p className={`text-center font-medium text-sm ${message.includes('失败') ? 'text-red-400' : 'text-green-400'}`}>{message}</p>}
 
-          <Button type="submit" isLoading={isUpdating} variant="primary">
-            保存更改
-          </Button>
+          <Button type="submit" isLoading={isUpdating} variant="primary">保存所有更改</Button>
         </form>
 
         <div className="border-t border-slate-700 pt-6 space-y-4">
-            <Button onClick={handleLogout} isLoading={isLoggingOut} variant="danger">
-              退出登录
-            </Button>
+            <Button onClick={handleLogout} isLoading={isLoggingOut} variant="danger">退出登录</Button>
             <Link href="/" className="block text-center font-medium text-indigo-400 hover:text-indigo-300 transition-colors">
               返回主页
             </Link>
