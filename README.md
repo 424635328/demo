@@ -1,6 +1,6 @@
-# Demo - 全栈认证与个人资料管理系统
+# Demo
 
-这是一个基于 Next.js 和 Supabase 构建的、功能完备且设计现代的全栈 Web 应用。项目从零开始，实现了一个包含多种认证方式、安全密码重置和个人资料管理的全流程用户系统。
+这是一个基于 Next.js 和 Supabase 构建的、功能完备且设计现代的 Web 应用。项目从零开始，实现了一个包含多种认证方式、安全密码重置和个人资料管理的全流程用户系统。
 
 **线上访问地址**: [https://demo-noob.vercel.app/](https://demo-noob.vercel.app/)
 
