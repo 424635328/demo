@@ -149,7 +149,7 @@ export default function ProfilePage() {
           initialImage={avatarUrl}
           onImageCropped={(blob) => setCroppedAvatarBlob(blob)}
           onUploadRequested={() => handleUpdateProfile()} // Trigger the main form submission logic
-          isLoading={isUpdating}
+          isUploading={isUpdating}
         />
 
         {/* The main form for other profile details */}

@@ -64,7 +64,7 @@ export default function HomePage() {
                 .pauseFor(1500)
                 .typeString('<br/>使用 <strong style="color: #4ade80;">Supabase</strong> 进行数据存储')
                 .pauseFor(1500)
-                .typeString('<br/>并通过 <strong style="color: #facc15;">阿里云</strong> 实现安全认证')
+                .typeString('<br/>并通过 <strong style="color: #facc15;">XX云</strong> 实现安全认证')
                 .start();
             }}
             options={{

@@ -5,8 +5,8 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Demo - 全栈认证系统',
-  description: '一个基于 Next.js 和 Supabase 构建的全栈应用',
+  title: 'Demo ',
+  description: '基于 Next.js 和 Supabase 构建',
 };
 
 export default function RootLayout({
