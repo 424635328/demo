@@ -20,7 +20,7 @@ jobs:
 
       - name: Create Pull Request from test to main
         id: cpr
-        uses: peter-evans/create-pull-request@v4
+        uses: peter-evans/create-pull-request@v7
         with:
           # 使用 GitHub App 的 Token，权限更安全
           token: ${{ secrets.GITHUB_TOKEN }}
